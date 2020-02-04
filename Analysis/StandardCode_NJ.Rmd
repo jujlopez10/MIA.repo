@@ -1,0 +1,194 @@
+---
+title: "Scale Measurement Validity Standard Code"
+output:
+  html_document
+---
+```{r setup, include=FALSE, error = FALSE, eval=FALSE}
+```
+
+STEP 1: Randomly Split Dataset
+```{r Randomly Split Dataset}
+#RANDOMLY SPLIT DATASET
+# Option 1 
+dataset <- read.csv("C:/Users/Admin/FileName.csv", header=TRUE)
+chosen = sample(seq_len(nrow(dataset)),size = sample_size)
+EFAdata =dataset[chosen,]
+CFAdata =dataset[-chosen,]
+
+#Option 2a
+library(dplyr)
+newdata <- df %>% mutate(group = sample(n())/n() > 0.5)
+split(newdata, newdata$group)
+
+#Option 2b
+newdata <- df %>% group_by(GroupVAr) %>% 
+mutate(group = sample(n())/n() > 0.5)
+split(newdata, newdata$group)
+```
+STEP 2: Conduct EFA
+```{r Conduct EFA}
+# EFA in R http://rtutorialseries.blogspot.com/2011/10/r-tutorial-series-exploratory-factor.html
+library(psych)
+library(GPArotation)
+data01 <- read.csv("C:/Users/Admin/FileName.csv", header=TRUE)
+
+# write.csv(EFAdata, "C:/Users/PATH.csv")
+
+#listwise deletion of missing data http://www.statmethods.net/input/missingdata.html
+newdata<-na.omit(data01)
+#calculate the correlation matrix
+corMat <- cor(newdata)
+#display the correlation matrix
+corMat
+
+#use fa() to conduct an oblique principal-axis exploratory factor analysis
+#save the solution to an R variable
+# X-number factor solution(s) 4
+solutionX <- fa(r = corMat, nfactors = X, rotate = "oblimin", fm = "pa")
+#display the solution output
+solutionX
+
+# Y-number factor solution(s) 8
+solutionY <- fa(r = corMat, nfactors = Y, rotate = "oblimin", fm = "pa")
+#display the solution output
+solutionY
+
+#compare solutions
+anova(solutionX, solutionY)
+```
+STEP 3: Conduct CFA
+```{r Conduct CFA}
+#CFA IN R USING LAVAAN
+library(semTools)
+data01 <- read.csv("C:/Users/Admin/FileName.csv", header=TRUE)
+
+#CFA1 - 6 first order factors 
+model01 <- 'Var1=~Item1+Item2+Item3
+Var2=~Item1+Item2+Item3
+Var3=~Item1+Item2+Item3
+Var4=~Item1+Item2+Item3
+VAr5=~Item1+Item2+Item3
+VAr6=~Item1+Item2+Item3'
+fit1 <- cfa(model01, data=data01, missing="ml")
+summary (fit1, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+reliability(fit1)
+
+#CFA1a - 2 higher order, 6 first order factors
+model01a <- 'Var1=~Item1+Item2+Item3
+Var2=~Item1+Item2+Item3
+Var3=~Item1+Item2+Item3
+Var4=~Item1+Item2+Item3
+Var5=~Item1+Item2+Item3
+Var6=~Item1+Item2+Item3
+Factor1=~Var1+Var2+Var3
+Factor2=~Var1+Var2+Var3'
+fit1a <- cfa(model01a, data=data01, missing="ml")
+summary (fit1a, fit.measures=TRUE, standardized=TRUE, rsquare=TRUE)
+reliability(fit1a)
+
+#compare model fit
+anova(fit1, fit1a)
+
+#MEASUREMENT INVARIANCE for preferred CFA model
+measurementInvariance(model01, data=data01, missing="ml", group="gender")
+warnings()
+```
+STEP 4: Create Composites
+```{r Create Composites}
+#CREATE COMPOSITES BASED ON CFA RESULTS
+##Create Data Frame with ONLY those variables relevant to scale
+data.subset <- dataset %>% select (var1,var2,var3,var4,var5)
+
+##Compute Composite [varcomp]
+varcomp <- as.data.frame(composite(data.subset, rel = TRUE, nomiss = .60)) %>%
+  rename(varcomp = "composite(data.subset, rel = TRUE, nomiss = 0.6)") 
+
+#add composite to main dataframe
+dataset <- cbind(dataset_filtered, varcomp) 
+
+```
+STEP 5: Get Table with Summary of Descriptives
+```{r Get Table with Summary of Descriptives}
+#COMPUTE TABLE WITH BASIC DESCRIPTIVES (mean, sd, Range, Missing)
+#ADDITIONAL OPTIONS: https://thatdatatho.com/2018/08/20/easily-create-descriptive-summary-statistic-tables-r-studio/
+library(table1)
+table1::label(dataset$var1) <- "Variable 1"
+table1::label(dataset$var2) <- "Variable 2"
+table1::label(dataset$var3) <- "Variable 3"
+
+#overall means
+table1::table1(~var1+var2+var3, data = dataset)
+#grouped means
+table1::table1(~var1+var2+var3 | GroupVar, data = dataset)
+```
+STEP 6: Get Correlation Tables and Matrix Plots 
+(lots of options here)
+```{r Get Correlation Tables and Matrix Plots}
+#PRODUCE CORRELATION MATRIX AND PLOTS
+correlate <- cor(var1, var2, var3)
+print(correlate)
+#p-values for pair of variables
+corr.test(var1, var2)
+
+#get correlation table: https://neuropsychology.github.io/psycho.R/2018/05/20/correlation.html
+library(psycho)
+library(tidyverse)
+correlate <- psycho::dataset %>% 
+  correlation(method = "pearson", adjust="bonferroni", type="partial") %>% 
+  summary()
+#export table to excel file
+write.csv(summary(correlate), "correlation.table.csv")
+#get write up of results and p-values
+print(correlate)
+#get image plot [same as ggcorrplot below]
+plot (correlate)
+
+#image plot of correlation matrix option 1
+corPlot(correlate)
+
+#image plot of correlation matrix option 2: http://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html
+library('corrplot') 
+# get correlations
+correlate <- cor(dataset) 
+corrplot(correlate, method = "circle") #plot matrix
+
+#image plot of correlation matrix option 3
+library(ggplot2)
+library (ggcorrplot)
+#image plot with coefficients and hierarchical order
+ggcorrplot(correlate, hc.order = TRUE, type = "lower",
+           lab = TRUE)
+#image plot of correlation matrix option 4
+library(qtlcharts)
+data(subsetted.dataframe)
+dataset$GroupVar <- NULL
+iplotCorr(subsetted.dataframe, reorder=TRUE)
+
+#image plot of correlation matrix option 5 (with variations of the above):https://jamesmarquezportfolio.com/correlation_matrices_in_r.html
+library("PerformanceAnalytics")
+chart.Correlation(dataset, histogram=TRUE, pch=19)
+
+#simple scatter plots
+plot(var1, var2)
+```
+STEP 7: Perform Regressions and/or ANOVAs
+```{r Regression/ANOVA }
+#REGRESSION/ANOVA
+fit1 <- lm(DV~ IV1 + IV2 + IV3, data=dataset)
+summary(fit1)
+fit1a <- lm(DV~ IV1 + IV2 + IV3 | GroupVar, data=dataset)
+summary(fit1a)
+#compare models
+anova(fit1, fit1a)
+
+#PLOTS
+#to be continued.....)
+```
+
+```{r create tables from r output}
+#create tables from r output
+#https://sejdemyr.github.io/r-tutorials/basics/tables-in-r/
+```
+
+End.
+

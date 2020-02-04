@@ -1,0 +1,152 @@
+---
+title: "MIA_EFA"
+author: "Julisa"
+date: "11/13/2019"
+output: html_document
+---
+
+Load in Packages
+```{r Required Packages}
+
+library(readr) # read in data
+library(dplyr) # Getting EFA data
+library(tidyverse)
+library(psych) # For EFA
+library(GPArotation) # For EFA
+library(nFactors) # Determining number of factors to extract
+
+```
+
+
+Prepping Data
+```{r Load in Data}
+dataset <- read.csv("C:/Users/Julisa/Documents/Mascot Study/Data.csv", header = TRUE)
+
+native <- subset(dataset, Q41_6 == 1)
+
+table(native$T)
+```
+
+
+STEP 1: Randomly Split Dataset
+```{r Randomly Split Dataset}
+#RANDOMLY SPLIT DATASET
+# Option 1
+
+chosen = sample(seq_len(nrow(dataset)),size = 609)
+# sample takes a sample of specific size from the elements of x using either with or without replacement
+# seq_len is a function of one parameter that creates a sequence from 1 to this parameter using steps of 1. Commonly used to create indezes using a vector. 
+# seq_len(nrow(dataset)) - create a sequence, length is the number of rows in the data set. This is also x - which is either a vector of one or more elements from which to choose, or a positive interger 
+# size is a non-negative interger giving the number of items to choose
+
+EFAdata =dataset[chosen,]
+CFAdata =dataset[-chosen,]
+
+
+```
+
+STEP 2: Conduct EFA (Option A)
+```{r Conduct EFA}
+# EFA in R http://rtutorialseries.blogspot.com/2011/10/r-tutorial-series-exploratory-factor.html
+
+write.csv(EFAdata, 'EFAdata.csv')
+
+EFA.IN.native <- subset(EFAdata, Q41_6 = 1)
+
+EFA.raw <- EFA.IN.native %>%
+  dplyr::select(Invis1_1,
+                Invis1_2,
+                Invis1_3,
+                Invis2_1,
+                Invis2_2,
+                Invis2_3,
+                Invis2_4,
+                Invis2_5,
+                Invis3_1,
+                Invis3_2,
+                Invis3_3,
+                Invis3_4,
+                Invis3_5,
+                Invis3_6,
+                Invis3_7,
+                Invis3_8,
+                Invis3_9,
+                Invis4_1,
+                Invis4_2,
+                Invis4_3,
+                Invis4_4,
+                Invis4_5,
+                Invis4_6,
+                Invis4_7,
+                Invis5_1,
+                Invis5_2,
+                Invis5_3,
+                Invis5_4,
+                Invis5_5,
+                Invis5_6,
+                Invis5_7,
+                Invis5_8,
+                Invis5_9,
+                Invis5_10,
+                Invis5_11,
+                Invis5_12,
+                Invis5_13,
+                Invis6_1,
+                Invis6_2,
+                Invis6_3,
+                Invis6_4,
+                Invis6_5,
+                Invis6_6,
+                Invis6_7,
+                Invis6_8,
+                Invis6_9,
+                Invis6_10
+                )
+
+EFA.IN.df <- as.data.frame(EFA.raw)
+
+
+#listwise deletion of missing data
+# http://www.statmethods.net/input/missingdata.html
+# is this the best way to omit data? 
+EFA.IN.omit <-na.omit(EFA.IN.df)
+#calculate the correlation matrix
+corMat <- cor(EFA.IN.omit)
+#display the correlation matrix
+### WHAT AM I LOOKING FOR HERE? ###
+corMat
+
+#use fa() to conduct an oblique principal-axis exploratory factor analysis
+#save the solution to an R variable
+# X-number factor solution(s)
+solutionX <- fa(r = corMat, nfactors = 4, rotate = "oblimin", fm = "pa")
+#display the solution output
+solutionX
+
+# Y-number factor solution(s)
+solutionY <- fa(r = corMat, nfactors = 8, rotate = "oblimin", fm = "pa")
+#display the solution output
+solutionY
+
+#compare solutions
+# anova(solutionX, solutionY) look at anova error
+```
+
+STEP 2: Conduct EFA (Option B)
+```{r}
+# Determine Number of Factors to Extract
+ev <- eigen(cor(EFA.IN.omit)) # get eigenvalues
+ap <- parallel(subject=nrow(EFA.IN.omit),var=ncol(EFA.IN.omit),
+  rep=100,cent=.05)
+nS <- nScree(x=ev$values, aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+# Maximum Likelihood Factor Analysis
+# MLFA or PAFA
+# http://3me.home.tudelft.nl/fileadmin/Faculteit/3mE/Over_de_faculteit/Afdelingen/BioMechanical_Engineering/Organisatie/Medewerkers/Winter/doc/20.pdf 
+
+?factanal()
+fit <- factanal(EFA.IN.omit, 4, rotation="oblimin")
+print(fit, digits=2, cutoff=.3, sort=TRUE)
+```
+
